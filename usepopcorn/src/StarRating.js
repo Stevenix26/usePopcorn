@@ -34,7 +34,7 @@ function StarRating({
   message = [],
   defaultRating,
   onMovieRating,
-}) {
+}) {  
   const [rating, setRating] = useState(defaultRating);
   const [tempRating, setTempRating] = useState(0);
 
@@ -51,7 +51,7 @@ function StarRating({
 
   function handleRating(rating) {
     setRating(rating);
-    onMovieRating(rating);
+    onMovieRating(()=>onMovieRating(rating));
   }
 
   function handleSubmit(e) {
@@ -85,8 +85,9 @@ function StarRating({
           ? message[tempRating ? tempRating - 1 : rating - 1]
           : tempRating || rating || ""}
       </p>
-
-      <span>{message.length[tempRating ? tempRating - 1 : rating - 1]}</span>
+      <span>
+        {message.length[tempRating ? tempRating - 1 : rating - 1]}
+      </span>
     </div>
   );
 }
