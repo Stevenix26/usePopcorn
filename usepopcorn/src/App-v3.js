@@ -1,24 +1,66 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import StarRating from "./StarRating";
-import { useMovie } from "./useMovie";
-import { useLocalStorageState } from "./useLocalStorageState";
+
+// const tempMovieData = [
+//   {
+//     imdbID: "tt1375666",
+//     Title: "Inception",
+//     Year: "2010",
+//     Poster:
+//       "https://m.media-amazon.com/images/M/MV5BMjAxMzY3NjcxNF5BMl5BanBnXkFtZTcwNTI5OTM0Mw@@._V1_SX300.jpg",
+//   },
+//   {
+//     imdbID: "tt0133093",
+//     Title: "The Matrix",
+//     Year: "1999",
+//     Poster:
+//       "https://m.media-amazon.com/images/M/MV5BNzQzOTk3OTAtNDQ0Zi00ZTVkLWI0MTEtMDllZjNkYzNjNTc4L2ltYWdlXkEyXkFqcGdeQXVyNjU0OTQ0OTY@._V1_SX300.jpg",
+//   },
+//   {
+//     imdbID: "tt6751668",
+//     Title: "Parasite",
+//     Year: "2019",
+//     Poster:
+//       "https://m.media-amazon.com/images/M/MV5BYWZjMjk3ZTItODQ2ZC00NTY5LWE0ZDYtZTI3MjcwN2Q5NTVkXkEyXkFqcGdeQXVyODk4OTc3MTY@._V1_SX300.jpg",
+//   },
+// ];
+
+// const tempWatchedData = [
+//   {
+//     imdbID: "tt1375666",
+//     Title: "Inception",
+//     Year: "2010",
+//     Poster:
+//       "https://m.media-amazon.com/images/M/MV5BMjAxMzY3NjcxNF5BMl5BanBnXkFtZTcwNTI5OTM0Mw@@._V1_SX300.jpg",
+//     runtime: 148,
+//     imdbRating: 8.8,
+//     userRating: 10,
+//   },
+//   {
+//     imdbID: "tt0088763",
+//     Title: "Back to the Future",
+//     Year: "1985",
+//     Poster:
+//       "https://m.media-amazon.com/images/M/MV5BZmU0M2Y1OGUtZjIxNi00ZjBkLTg1MjgtOWIyNThiZWIwYjRiXkEyXkFqcGdeQXVyMTQxNzMzNDI@._V1_SX300.jpg",
+//     runtime: 116,
+//     imdbRating: 8.5,
+//     userRating: 9,
+//   },
+// ];
 
 const KEY = "aea9e7cc";
-
 const average = (arr) =>
   arr.reduce((acc, cur, i, arr) => acc + cur / arr.length, 0);
 
 export default function App() {
   const [query, setQuery] = useState("");
+  const [movies, setMovies] = useState([]);
+  const [watched, setWatched] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
   const [selectedId, setSelectedId] = useState(null);
-  const { movies, isLoading, error } = useMovie(query);
-
-  const [watched, setWatched] = useLocalStorageState([], "watched")
 
 
-
-
-  // eslint-disable-next-line
   function handleSelectMovie(id) {
     setSelectedId((selectedId) => (id === selectedId ? null : id));
   }
@@ -29,15 +71,67 @@ export default function App() {
 
   function handleAddWatched(movie) {
     setWatched((watched) => [...watched, movie]);
-
-    //   localStorage.setItem("watched", JSON.stringify([...watched, movie]));
   }
-  // Save the watched movies to localStorage
 
   function handleDeleteMovie(id) {
     setWatched((watched) => watched.filter((movie) => movie.imbID !== id));
   }
 
+  useEffect(
+    function () {
+      const controller = new AbortController();
+      // AbortController is used to cancel the fetch request if the component unmounts or if the query changes before the fetch completes
+      // This prevents memory leaks and unnecessary network requests
+      // If the component unmounts or the query changes, the fetch request will be aborted
+      async function fetchMovies() {
+        try {
+          setIsLoading(true);
+          setError("");
+          const res = await fetch(
+            `http://www.omdbapi.com/?apikey=${KEY}&s=${query}`,
+            { signal: controller.signal }
+          );
+
+          if (!res.ok)
+            throw new Error("Something went wrong with fetching movies");
+
+          const data = await res.json();
+          console.log(data);
+
+          if (data.Response === "False") throw new Error("Movie not found");
+          setMovies(data.Search);
+          setError("");
+        } catch (err) {
+          // If the error is an AbortError, it means the fetch was aborted, so we don't want to set an error state
+          // This is useful to prevent showing an error message when the user types a new query before the previous fetch completes
+          // This way, we only show errors that are not related to the fetch being aborted
+          if (err.name !== "AbortError") {
+            setError(err.message);
+            console.log(err.message);
+
+          }
+        } finally {
+          setIsLoading(false);
+        }
+      }
+
+      if (query.length < 3) {
+        setMovies([]);
+        setError("");
+        return;
+      }
+      handleCloseMovies();
+
+      // Fetch movies only if the query length is at least 3 characters
+      fetchMovies();
+      
+      // Cleanup function to abort the fetch request if the component unmounts or if the query changes
+      return () => {
+        controller.abort();
+      };
+    },
+    [query]
+  );
 
   return (
     <>
@@ -129,51 +223,6 @@ function NumResult({ movies }) {
   );
 }
 function Search({ query, setQuery }) {
-
-  const inputRef = useRef(null);
-
-  useEffect(() => {
-    // This effect will run only once when the component mounts
-    // It sets the focus on the search input element
-
-    function callback(e) {
-      if (document.activeElement === inputRef.current) return;
-      // If the input is already focused, we don't want to do anything
-
-      if (e.code === "Enter") {
-        inputRef.current.focus();
-        setQuery("");
-        console.log("Enter key pressed, focusing input and clearing query");
-
-      }
-      // setQuery(inputRef.current.value);
-    }
-
-    document.addEventListener("keydown", callback);
-
-    return () => {
-      document.removeEventListener("keydown", callback);
-      console.log("Cleanup: removing event listener for keydown");
-      // Cleanup function to remove the event listener when the component unmountsentListener("keydown", callback);
-    };
-
-
-  }, [inputRef, setQuery]);
-
-
-  // useEffect(()=>{
-  //   const el = document.querySelector(".search"); 
-  //   console.log(el)
-  //   el.focus();
-  //   // This effect will run only once when the component mounts
-  //   // It sets the focus on the search input element
-  //   // This is useful to improve user experience by allowing the user to start typing immediately without having
-  //   // to click on the input field first
-
-  // }, []);
-
-
-
   function handleQuery(e) {
     setQuery(() => e.target.value);
   }
@@ -185,7 +234,6 @@ function Search({ query, setQuery }) {
       placeholder="Search movies..."
       value={query}
       onChange={handleQuery}
-      ref={inputRef} // Using useRef to focus the input element
     />
   );
 }
@@ -200,7 +248,7 @@ function Main({ children }) {
 function Box({ children }) {
   const [isOpen, setIsOpen] = useState(true);
   return (
-    <div className="box ">
+    <div className="box">
       <button className="btn-toggle" onClick={() => setIsOpen((open) => !open)}>
         {isOpen ? "–" : "+"}
       </button>
@@ -233,7 +281,7 @@ function Box({ children }) {
 function MovieList({ movies, onSelectMovies }) {
 
   return (
-    <ul className="list list-movies">
+    <ul className="list">
       {movies?.map((movie) => (
         <Movie
           movie={movie}
@@ -272,16 +320,10 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
   const [selectMovie, setSelectMovie] = useState({});
   const [isloading, setIsLoading] = useState(false);
   const [userRating, setUserRating] = useState("");
+
   const isWatched = watched.map((movie) => movie.imbID).includes(selectedId);
+
   const watchedUserrating = watched.find(movie => movie.imbID === selectedId)?.userRating;
-
-  const countRef = useRef(0);
-  // useRef is used to persist the value across renders without causing re-renders
-  useEffect(() => {
-    if (userRating) countRef.current++;
-
-  }, [userRating]);
-  // This effect will run only once when the component mounts
 
   const {
     Title: title,
@@ -296,19 +338,6 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
     Genre: genre,
   } = selectMovie;
 
-  // const [isTop, setIsTop] = useState(imdbRating > 8);
-  // console.log(isTop);
-  // useEffect(() => {
-  //   setIsTop(imdbRating > 8);
-  // }, [imdbRating]);
-
-  // const [average, setAverage] = useState(0);
-  // useEffect(() => {
-  //   const avg = (average + userRating) / 2;
-  //   setAverage(avg);
-  // }
-  // , [average, userRating]);
-
   function handleAdd() {
     const newMovie = {
       imbID: selectedId,
@@ -318,15 +347,10 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
       imdbRating: Number(imdbRating),
       runtime: Number(runtime.split(" ").at(0)),
       userRating,
-      countRatingDecisions: countRef.current,
     };
 
     onAddWatched(newMovie);
     onCloseMovie();
-    // setAverage(Number(imdbRating));
-    // setAverage((average)=> (average + userRating) / 2);
-
-    // Reset user rating after
   }
 
   useEffect(() => {
@@ -368,8 +392,6 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
       }
     }
     document.addEventListener("keydown", callback);
-    // This effect will run when the component mounts and adds an event listener for the "keydown" event
-
     // Cleanup function to remove the event listener
     return function () {
       document.removeEventListener("keydown", callback);
@@ -401,9 +423,6 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
               <p>⭐ {imdbRating} IMDb rating</p>
             </div>
           </header>
-          {/* <p className="average">
-          {average.toFixed(2)} ⭐️ average rating
-        </p> */}
           <section>
             <div className="rating">
               {!isWatched ? (
@@ -491,8 +510,6 @@ function WatchedSummary({ watched }) {
 }
 
 function WatchedMovieList({ watched, onRemoveMovie }) {
-
-
   return (
     <ul className="list">
       {watched.map((movie) => (
@@ -530,4 +547,3 @@ function WatchedMovie({ movie, onRemoveMovie }) {
     </li>
   );
 }
-
