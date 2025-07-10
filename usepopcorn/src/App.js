@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import StarRating from "./StarRating";
 import { useMovie } from "./useMovie";
 import { useLocalStorageState } from "./useLocalStorageState";
+import { useKey } from "./useKey";
 
 const KEY = "aea9e7cc";
 
@@ -13,7 +14,7 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(null);
   const { movies, isLoading, error } = useMovie(query);
 
-  const [watched, setWatched] = useLocalStorageState([], "watched")
+  const [watched, setWatched] = useLocalStorageState([], "watched");
 
 
 
@@ -35,7 +36,7 @@ export default function App() {
   // Save the watched movies to localStorage
 
   function handleDeleteMovie(id) {
-    setWatched((watched) => watched.filter((movie) => movie.imbID !== id));
+    setWatched((watched) => watched.filter((movie) => movie.imdbID !== id));
   }
 
 
@@ -132,33 +133,42 @@ function Search({ query, setQuery }) {
 
   const inputRef = useRef(null);
 
-  useEffect(() => {
-    // This effect will run only once when the component mounts
-    // It sets the focus on the search input element
-
-    function callback(e) {
-      if (document.activeElement === inputRef.current) return;
-      // If the input is already focused, we don't want to do anything
-
-      if (e.code === "Enter") {
-        inputRef.current.focus();
-        setQuery("");
-        console.log("Enter key pressed, focusing input and clearing query");
-
-      }
-      // setQuery(inputRef.current.value);
-    }
-
-    document.addEventListener("keydown", callback);
-
-    return () => {
-      document.removeEventListener("keydown", callback);
-      console.log("Cleanup: removing event listener for keydown");
-      // Cleanup function to remove the event listener when the component unmountsentListener("keydown", callback);
-    };
+  useKey("Enter", () => {
+    if (document.activeElement === inputRef.current) return;
+    // If the input is already focused, we don't want to do anything
+    inputRef.current.focus();
+    setQuery("");
+    console.log("Enter key pressed, focusing input and clearing query");
+  }); 
 
 
-  }, [inputRef, setQuery]);
+  // useEffect(() => {
+  //   // This effect will run only once when the component mounts
+  //   // It sets the focus on the search input element
+
+  //   function callback(e) {
+  //     if (document.activeElement === inputRef.current) return;
+  //     // If the input is already focused, we don't want to do anything
+
+  //     if (e.code === "Enter") {
+  //       inputRef.current.focus();
+  //       setQuery("");
+  //       console.log("Enter key pressed, focusing input and clearing query");
+
+  //     }
+  //     // setQuery(inputRef.current.value);
+  //   }
+
+  //   document.addEventListener("keydown", callback);
+
+  //   return () => {
+  //     document.removeEventListener("keydown", callback);
+  //     console.log("Cleanup: removing event listener for keydown");
+  //     // Cleanup function to remove the event listener when the component unmountsentListener("keydown", callback);
+  //   };
+
+
+  // }, [inputRef, setQuery]);
 
 
   // useEffect(()=>{
@@ -247,7 +257,7 @@ function MovieList({ movies, onSelectMovies }) {
 function Movie({ movie, onSelectMovies }) {
   return (
     <li onClick={() => onSelectMovies(movie.imdbID)}>
-      <img src={movie.Poster} alt={`${movie.Title} poster`} />
+      <img src={movie?.Poster} alt={`${movie.Title} poster`} />
       <h3>{movie.Title}</h3>
       <div>
         <p>
@@ -272,8 +282,9 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
   const [selectMovie, setSelectMovie] = useState({});
   const [isloading, setIsLoading] = useState(false);
   const [userRating, setUserRating] = useState("");
-  const isWatched = watched.map((movie) => movie.imbID).includes(selectedId);
-  const watchedUserrating = watched.find(movie => movie.imbID === selectedId)?.userRating;
+
+  const isWatched = watched.map((movie) => movie.imdbID).includes(selectedId);
+  const watchedUserrating = watched.find(movie => movie.imdbID === selectedId)?.userRating;
 
   const countRef = useRef(0);
   // useRef is used to persist the value across renders without causing re-renders
@@ -311,7 +322,7 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
 
   function handleAdd() {
     const newMovie = {
-      imbID: selectedId,
+      imdbID: selectedId,
       title,
       year,
       poster,
@@ -360,22 +371,7 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
     };
   }, [title]);
 
-  useEffect(function () {
-    function callback(e) {
-      if (e.code === "Escape") {
-        onCloseMovie();
-
-      }
-    }
-    document.addEventListener("keydown", callback);
-    // This effect will run when the component mounts and adds an event listener for the "keydown" event
-
-    // Cleanup function to remove the event listener
-    return function () {
-      document.removeEventListener("keydown", callback);
-    }
-
-  }, [onCloseMovie]);
+  useKey("Escape", onCloseMovie);
 
 
   return (
@@ -505,7 +501,7 @@ function WatchedMovie({ movie, onRemoveMovie }) {
 
   return (
     <li>
-      <img src={movie.poster} alt={`${movie.title} poster`} />
+      <img src={movie?.poster} alt={`${movie.title} poster`} />
       <h3>{movie.title}</h3>
       <div>
         <p>
@@ -520,7 +516,7 @@ function WatchedMovie({ movie, onRemoveMovie }) {
           <span>⏳</span>
           <span>{movie.runtime} min</span>
         </p>
-        <button className="btn-delete" onClick={() => onRemoveMovie(movie.imbID)}>
+        <button className="btn-delete" onClick={() => onRemoveMovie(movie.imdbID)}>
           ❌
         </button>
       </div>
